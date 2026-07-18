@@ -51,7 +51,7 @@ def _triage_one(link: dict, page, vault_path: Path, model) -> str:
         root_index=root_index,
     )
 
-    folder_dir = vault_path / result.folder
+    folder_dir = vault.safe_folder_dir(vault_path, result.folder)
     folder_index_path = folder_dir / "_Index.md"
 
     if result.is_new_folder:

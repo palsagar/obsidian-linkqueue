@@ -70,6 +70,20 @@ class TestGuardedRewrite:
         assert result.rstrip().endswith("## Evals\n- [[New Note]]")
 
 
+class TestSafeFolderDir:
+    def test_accepts_normal_folder(self, tmp_path):
+        assert vault.safe_folder_dir(tmp_path, "AI Engineering") == (
+            tmp_path / "AI Engineering"
+        ).resolve()
+
+    def test_rejects_traversal_and_vault_root(self, tmp_path):
+        import pytest
+
+        for bad in ("../evil", "a/../../evil", ".", "", "/tmp/evil"):
+            with pytest.raises(ValueError):
+                vault.safe_folder_dir(tmp_path, bad)
+
+
 class TestSafeFilename:
     def test_strips_characters_obsidian_rejects(self):
         assert (

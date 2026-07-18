@@ -142,6 +142,27 @@ class TestRunTriage:
         personal_i = lines.index("## Personal")
         assert "- [[Cooking/_Index|Cooking]] — Recipes and technique" in lines[personal_i:]
 
+    def test_traversal_folder_from_model_marks_link_failed(self, vault, queue_http, web):
+        queue_http.post("/links", json={"url": "https://example.com/good"})
+        model = make_model(
+            {
+                "note_title": "Evil",
+                "note_body": "x",
+                "tags": [],
+                "folder": "../outside",
+                "is_new_folder": True,
+                "folder_description": "d",
+                "section": "S",
+                "root_section": "Personal",
+            },
+            "",
+        )
+        stats = run_triage(QueueClient(queue_http), web, vault, model, limit=10)
+        assert stats == {"done": 0, "failed": 1}
+        assert not (vault.parent / "outside").exists()
+        link = queue_http.get("/links").json()[0]
+        assert link["status"] == "failed"
+
     def test_model_failure_marks_link_failed(self, vault, queue_http, web):
         queue_http.post("/links", json={"url": "https://example.com/good"})
 

@@ -53,6 +53,17 @@ def append_under_section(text: str, section: str, line: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def safe_folder_dir(vault_path: Path, folder: str) -> Path:
+    """Resolve a model-chosen folder name, refusing anything that escapes the
+    Vault or lands on its root (model output is untrusted — fetched pages can
+    prompt-inject it)."""
+    resolved = (vault_path / folder).resolve()
+    root = vault_path.resolve()
+    if resolved == root or not resolved.is_relative_to(root):
+        raise ValueError(f"unsafe folder name: {folder!r}")
+    return resolved
+
+
 def safe_filename(title: str) -> str:
     cleaned = UNSAFE_FILENAME_CHARS.sub("", title)
     return re.sub(r"\s+", " ", cleaned).strip()
@@ -69,11 +80,12 @@ def write_note(
     tags: list[str],
 ) -> str:
     """Write the note, deduping filename collisions. Returns the vault-relative path."""
+    folder_dir = safe_folder_dir(vault_path, folder)
     name = safe_filename(title)
-    target = vault_path / folder / f"{name}.md"
+    target = folder_dir / f"{name}.md"
     n = 2
     while target.exists():
-        target = vault_path / folder / f"{name} {n}.md"
+        target = folder_dir / f"{name} {n}.md"
         n += 1
     tag_lines = "".join(f"\n  - {t}" for t in tags)
     frontmatter = (
@@ -85,4 +97,4 @@ def write_note(
         f"---\n"
     )
     target.write_text(f"{frontmatter}\n{body.strip()}\n")
-    return str(target.relative_to(vault_path))
+    return str(target.relative_to(vault_path.resolve()))
