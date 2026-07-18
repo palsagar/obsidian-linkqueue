@@ -27,6 +27,13 @@ class TestLoadConfig:
         assert cfg.fallback_model == "deepseek/deepseek-v4-pro"
         assert cfg.limit == 20
 
+    def test_expands_env_vars_in_vault_path(self, tmp_path):
+        f = tmp_path / "agent.env"
+        f.write_text(VALID.replace("VAULT_PATH=~/Obsidian/vault", "VAULT_PATH=$HOME/Obsidian/vault"))
+        cfg = load_config(f)
+        assert "$" not in str(cfg.vault_path)
+        assert str(cfg.vault_path).endswith("/Obsidian/vault")
+
     def test_overrides_for_optional_keys(self, tmp_path):
         f = tmp_path / "agent.env"
         f.write_text(VALID + "TRIAGE_MODEL=foo/bar\nTRIAGE_LIMIT=5\n")

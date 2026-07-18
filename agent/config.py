@@ -1,6 +1,7 @@
 """Agent config: one env-format file, loaded explicitly so interactive and
 launchd runs share it. Default location: ~/.config/linkqueue/agent.env."""
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -44,7 +45,7 @@ def load_config(path: Path = DEFAULT_PATH) -> Config:
         queue_url=values["QUEUE_URL"],
         cf_access_client_id=values["CF_ACCESS_CLIENT_ID"],
         cf_access_client_secret=values["CF_ACCESS_CLIENT_SECRET"],
-        vault_path=Path(values["VAULT_PATH"]).expanduser(),
+        vault_path=Path(os.path.expandvars(values["VAULT_PATH"])).expanduser(),
         model=values.get("TRIAGE_MODEL", Config.model),
         fallback_model=values.get("TRIAGE_FALLBACK_MODEL", Config.fallback_model),
         limit=int(values.get("TRIAGE_LIMIT", Config.limit)),
