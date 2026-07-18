@@ -4,23 +4,35 @@ Terms per [CONTEXT.md](../CONTEXT.md). Decisions per [ADR 0001](adr/0001-obsidia
 
 ## Overview
 
-```
- iPhone / laptops                    VPS (Coolify, Hetzner)              Agent laptop(s)
-┌──────────────────┐    HTTPS      ┌──────────────────────────┐        ┌──────────────────────────┐
-│ iOS/laptops      │──POST /links─▶│  Queue API (FastAPI)     │◀─claim─│  Triage Agent (Python)   │
-│ Shortcut         │               │  ├─ SQLite (links)       │  HTTPS │  ├─ fetch_url (plain GET,│
-│ "Queue it"       │               │  ├─ Dashboard (Jinja+    │        │  │   no scrape/download) │
-└──────────────────┘               │  │   HTMX)               │        │  ├─ LLM via OpenRouter   │
-                                   │  └─ behind Cloudflare    │        │  │   (Pydantic AI)       │
-┌──────────────────┐    browser    │      Access              │        │  └─ writes to Vault ─┐   │
-│ Human (dashboard │──────────────▶│                          │        │     (filesystem)     │   │
-│ view / paste)    │               └──────────────────────────┘        └──────────────────────┼───┘
-└──────────────────┘                                                                          ▼
-                                                                    ┌──────────────────────────┐
-        all devices ◀────────────── Obsidian Sync ─────────────────│  Vault (local copy)      │
-        (read notes)                                                │  └─ nightly one-way git  │
-                                                                    │     push (backup only)   │
-                                                                    └──────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph clients["iPhone / laptops"]
+        S["iOS/macOS Shortcut<br/>'Queue it'"]
+        H["Human<br/>(dashboard view / paste)"]
+    end
+
+    subgraph vps["VPS — Coolify, Hetzner — behind Cloudflare Access"]
+        Q["Queue API (FastAPI)"]
+        DB[("SQLite — links")]
+        DASH["Dashboard<br/>(Jinja + HTMX)"]
+        Q --- DB
+        Q --- DASH
+    end
+
+    subgraph laptop["Agent laptop(s)"]
+        T["Triage Agent (Python)<br/>fetch_url: plain GET, no scrape/download<br/>LLM via OpenRouter (Pydantic AI)"]
+        V[("Vault — local copy")]
+        G["nightly one-way git push<br/>(backup only)"]
+    end
+
+    D["all devices<br/>(read notes)"]
+
+    S -- "POST /links — HTTPS" --> Q
+    H -- "browser" --> DASH
+    T -- "claim — HTTPS" --> Q
+    T -- "writes notes" --> V
+    V -- "Obsidian Sync" --> D
+    V --> G
 ```
 
 Flow: Capture appends a Link to the Queue → Triage (periodic, on a laptop) claims pending Links, takes a brief look at each (plain GET, no scraping or downloads), writes one note per Link into the Vault and updates `_Index.md` files → Obsidian Sync propagates to all devices.
