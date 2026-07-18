@@ -25,6 +25,41 @@ Terms per [CONTEXT.md](../CONTEXT.md). Decisions per [ADR 0001](adr/0001-obsidia
 
 Flow: Capture appends a Link to the Queue → Triage (periodic, on a laptop) claims pending Links, takes a brief look at each (plain GET, no scraping or downloads), writes one note per Link into the Vault and updates `_Index.md` files → Obsidian Sync propagates to all devices.
 
+## Flow sequence
+
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant S as Shortcut ('Queue it')
+    participant Q as Queue API (VPS)
+    participant T as Triage Agent (laptop)
+    participant V as Vault (filesystem)
+    participant O as Obsidian Sync
+
+    U->>S: Share → Queue it
+    S->>Q: POST /links {url, source}
+    Q-->>S: 201 pending (200 if already queued)
+    Note over Q: Link waits durably —<br/>laptop may be asleep
+
+    loop launchd: nightly + on-demand
+        T->>Q: POST /links/claim {limit, lease_seconds}
+        Q-->>T: Links → processing (leased)
+        T->>T: fetch_url — plain GET<br/>(title, metadata, readable text)
+        T->>T: LLM via OpenRouter:<br/>summarize + classify
+        alt triage succeeds
+            T->>V: write note, update _Index.md
+            T->>Q: PATCH /links/{id} {done, note_path}
+        else hard error (dead URL, API failure)
+            T->>Q: PATCH /links/{id} {failed, error}
+            Note over Q: visible in dashboard —<br/>retry sets it back to pending
+        end
+    end
+
+    V->>O: local change detected
+    O->>U: note appears on every device
+    Note over T,Q: Agent crash? Lease expires →<br/>Link becomes claimable again
+```
+
 ## Components
 
 ### 1. Queue API — FastAPI on the VPS

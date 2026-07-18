@@ -4,15 +4,26 @@
 
 Share a link from any device in one tap → it lands in a server-side Queue → a periodic LLM Agent files it into the Obsidian vault as a properly classified note → Obsidian Sync propagates it everywhere. The vault stays what it's good at: reading. The queue stops being a markdown file fought over by three devices.
 
-```
- iPhone / laptops              VPS (Docker, Cloudflare Access)         Agent laptop
- ┌──────────────┐   POST      ┌──────────────────────────┐   claim   ┌──────────────────┐
- │ "Queue it"   │────────────▶│  Queue API (FastAPI +    │◀──────────│  Triage Agent    │
- │ share sheet  │             │  SQLite) + dashboard     │           │  (LLM via        │
- └──────────────┘             └──────────────────────────┘           │  OpenRouter)     │
-                                                                     └────────┬─────────┘
-                                                                              ▼
-        all devices ◀─────────────── Obsidian Sync ────────────────  Obsidian vault
+```mermaid
+flowchart LR
+    subgraph capture["iPhone / laptops"]
+        S["'Queue it' share sheet"]
+        H["Dashboard (browser)"]
+    end
+    subgraph vps["VPS — Docker, Cloudflare Access"]
+        Q["Queue API<br/>FastAPI + SQLite + dashboard"]
+    end
+    subgraph laptop["Agent laptop"]
+        A["Triage Agent<br/>LLM via OpenRouter"]
+        V[("Obsidian vault")]
+    end
+    D["all devices (reading)"]
+
+    S -- "POST /links" --> Q
+    H -- "paste / retry" --> Q
+    A -- "claim + report" --> Q
+    A -- "writes notes" --> V
+    V -- "Obsidian Sync" --> D
 ```
 
 ## Documentation
