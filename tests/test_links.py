@@ -117,6 +117,17 @@ class TestDashboard:
         assert resp.status_code == 200
         assert "interesting-post" in resp.text
 
+    def test_dashboard_capture_form_queues_link(self, client):
+        resp = client.post(
+            "/dashboard/capture",
+            data={"url": "https://example.com/from-form"},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+        links = client.get("/links").json()
+        assert [l["url"] for l in links] == ["https://example.com/from-form"]
+        assert links[0]["source"] == "dashboard"
+
 
 class TestAuth:
     def test_cloudflare_mode_rejects_requests_without_assertion(self, tmp_path, monkeypatch):
