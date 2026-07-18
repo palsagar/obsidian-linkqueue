@@ -6,6 +6,7 @@ from pathlib import Path
 
 import httpx
 
+from agent.clippings import triage_clippings
 from agent.config import DEFAULT_PATH, load_config
 from agent.judgment import build_model
 from agent.queue_client import QueueClient, build_http_client
@@ -41,7 +42,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"queue unreachable ({e.__class__.__name__}) — skipping this run")
         return 0
 
-    print(f"triage: {stats['done']} done, {stats['failed']} failed")
+    clip_stats = triage_clippings(cfg.vault_path, model)
+
+    print(
+        f"triage: {stats['done']} done, {stats['failed']} failed (links); "
+        f"{clip_stats['done']} filed, {clip_stats['failed']} failed (clippings)"
+    )
     return 0
 
 

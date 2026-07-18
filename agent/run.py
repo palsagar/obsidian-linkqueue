@@ -38,19 +38,12 @@ def run_triage(
     return stats
 
 
-def _triage_one(link: dict, page, vault_path: Path, model) -> str:
+def update_indexes(vault_path: Path, result, model) -> None:
+    """File a classified note into the Taxonomy: create a new folder (seeding
+    its Index Note and the root entry) or guarded-rewrite the existing folder's
+    Index Note (ADR 0004). Shared by Link and Clipping triage."""
     root_index_path = vault_path / "_Index.md"
     root_index = root_index_path.read_text()
-
-    result = judgment.classify(
-        model,
-        url=link["url"],
-        note=link.get("note"),
-        page=page,
-        taxonomy=vault.taxonomy(root_index),
-        root_index=root_index,
-    )
-
     folder_dir = vault.safe_folder_dir(vault_path, result.folder)
     folder_index_path = folder_dir / "_Index.md"
 
@@ -79,6 +72,21 @@ def _triage_one(link: dict, page, vault_path: Path, model) -> str:
                 current, rewritten, f"- [[{result.note_title}]]", result.section
             )
         )
+
+
+def _triage_one(link: dict, page, vault_path: Path, model) -> str:
+    root_index = (vault_path / "_Index.md").read_text()
+
+    result = judgment.classify(
+        model,
+        url=link["url"],
+        note=link.get("note"),
+        page=page,
+        taxonomy=vault.taxonomy(root_index),
+        root_index=root_index,
+    )
+
+    update_indexes(vault_path, result, model)
 
     return vault.write_note(
         vault_path,

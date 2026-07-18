@@ -97,6 +97,12 @@ structured LLM calls per Link (classify + index rewrite) over OpenRouter,
 writes one note per Link into the Vault, and reports `done`/`failed` back to
 the Queue. Index rewrites are guarded — see `docs/adr/0004`.
 
+The same run also triages **Clippings**: full pages staged in the Vault's
+`Clippings/` folder (e.g. Obsidian Web Clipper output) are classified, moved
+into their Taxonomy folder under a clean title with merged frontmatter
+(content untouched), and indexed. Failed clippings stay in place for the
+next run.
+
 ### Install globally
 
 `uv tool install` puts `obs_triage` on your PATH (`~/.local/bin`), isolated

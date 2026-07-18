@@ -64,6 +64,15 @@ def safe_folder_dir(vault_path: Path, folder: str) -> Path:
     return resolved
 
 
+def unique_note_path(folder_dir: Path, name: str) -> Path:
+    target = folder_dir / f"{name}.md"
+    n = 2
+    while target.exists():
+        target = folder_dir / f"{name} {n}.md"
+        n += 1
+    return target
+
+
 def safe_filename(title: str) -> str:
     cleaned = UNSAFE_FILENAME_CHARS.sub("", title)
     return re.sub(r"\s+", " ", cleaned).strip()
@@ -81,12 +90,7 @@ def write_note(
 ) -> str:
     """Write the note, deduping filename collisions. Returns the vault-relative path."""
     folder_dir = safe_folder_dir(vault_path, folder)
-    name = safe_filename(title)
-    target = folder_dir / f"{name}.md"
-    n = 2
-    while target.exists():
-        target = folder_dir / f"{name} {n}.md"
-        n += 1
+    target = unique_note_path(folder_dir, safe_filename(title))
     tag_lines = "".join(f"\n  - {t}" for t in tags)
     frontmatter = (
         f"---\n"

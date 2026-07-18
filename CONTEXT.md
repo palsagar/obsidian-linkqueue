@@ -32,6 +32,10 @@ _Avoid_: repo, notes folder
 The curated, classified content inside the Vault (topic folders, index notes). What Triage maintains and the user reads.
 _Avoid_: KB, wiki
 
+**Clipping**:
+A full page saved by the user into the Vault's `Clippings` folder (e.g. via Obsidian Web Clipper) — content already in hand, awaiting classification. A unit of Triage alongside Links; `Clippings` itself is a staging area, never part of the Taxonomy.
+_Avoid_: clipped article, saved page
+
 **Index Note**:
 A curated navigation note (`_Index.md`) — one at the Vault root, one per topic folder. Triage keeps them current but may never lose an entry from one; pruning entries is a human-only act.
 _Avoid_: table of contents, MOC
