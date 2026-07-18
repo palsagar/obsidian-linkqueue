@@ -21,3 +21,10 @@ class TestCli:
         code = main(["run", "--config", str(tmp_path / "nope.env")])
         assert code == 1
         assert "nope.env" in capsys.readouterr().err
+
+    def test_backup_on_non_repo_vault_exits_nonzero(self, tmp_path, capsys):
+        cfg = tmp_path / "agent.env"
+        cfg.write_text(CONFIG.format(vault=tmp_path))
+        code = main(["backup", "--config", str(cfg)])
+        assert code == 1
+        assert "not a git repo" in capsys.readouterr().err

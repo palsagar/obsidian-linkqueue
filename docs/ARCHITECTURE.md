@@ -122,7 +122,7 @@ Runs where the Vault is (ADR 0001). Installed on this Mac first; the second lapt
 
 ### 6. Backup job — one-way git push
 
-launchd job on the Agent laptop: nightly `git add -A && git commit && git push` to the private GitHub repo. Never pulls, never runs on other devices; the obsidian-git plugin is removed everywhere. Pure offsite history.
+`obs_triage backup` (same CLI/config as Triage), nightly launchd at 23:00 on the Agent laptop: `git add -A && git commit && git push` to the private GitHub repo. Never pulls, never runs on other devices; a diverged remote fails the push loudly instead of merging. Pure offsite history.
 
 ## Migration plan (one-time cleanup)
 

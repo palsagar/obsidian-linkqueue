@@ -1,11 +1,14 @@
-"""`obs_triage run` — the Agent's entry point (interactive and launchd)."""
+"""`obs_triage run` / `obs_triage backup` — the Agent's entry points
+(interactive and launchd)."""
 
 import argparse
+import subprocess
 import sys
 from pathlib import Path
 
 import httpx
 
+from agent.backup import run_backup
 from agent.clippings import triage_clippings
 from agent.config import DEFAULT_PATH, load_config
 from agent.judgment import build_model
@@ -19,6 +22,8 @@ def main(argv: list[str] | None = None) -> int:
     run_p = sub.add_parser("run", help="claim pending Links and triage them")
     run_p.add_argument("--config", default=str(DEFAULT_PATH))
     run_p.add_argument("--limit", type=int, default=None)
+    backup_p = sub.add_parser("backup", help="one-way git backup of the Vault")
+    backup_p.add_argument("--config", default=str(DEFAULT_PATH))
     args = parser.parse_args(argv)
 
     try:
@@ -26,6 +31,17 @@ def main(argv: list[str] | None = None) -> int:
     except (FileNotFoundError, ValueError) as e:
         print(e, file=sys.stderr)
         return 1
+
+    if args.command == "backup":
+        try:
+            print(f"backup: {run_backup(cfg.vault_path)}")
+        except ValueError as e:
+            print(e, file=sys.stderr)
+            return 1
+        except subprocess.CalledProcessError as e:
+            print(f"backup failed: {e.stderr.strip() or e}", file=sys.stderr)
+            return 1
+        return 0
 
     queue = QueueClient(
         build_http_client(cfg.queue_url, cfg.cf_access_client_id, cfg.cf_access_client_secret)

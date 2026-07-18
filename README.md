@@ -147,3 +147,17 @@ launchctl load ~/Library/LaunchAgents/com.linkqueue.triage.plist
 
 Manual run anytime: `obs_triage run` (add `--limit N` to cap a run).
 Offline or empty queue → the run skips silently.
+
+## Vault backup
+
+`obs_triage backup` does a one-way `git add / commit / push` of the Vault to
+its `origin` remote — it never fetches or pulls (git is a backup target, not
+a sync mechanism; ADR 0001). No changes → no commit. A diverged remote makes
+the push fail loudly rather than merge.
+
+Nightly at 23:00 (an hour after triage):
+
+```bash
+cp deploy/com.linkqueue.backup.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.linkqueue.backup.plist
+```
