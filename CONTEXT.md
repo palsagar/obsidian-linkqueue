@@ -32,6 +32,14 @@ _Avoid_: repo, notes folder
 The curated, classified content inside the Vault (topic folders, index notes). What Triage maintains and the user reads.
 _Avoid_: KB, wiki
 
+**Index Note**:
+A curated navigation note (`_Index.md`) — one at the Vault root, one per topic folder. Triage keeps them current but may never lose an entry from one; pruning entries is a human-only act.
+_Avoid_: table of contents, MOC
+
+**Taxonomy**:
+The set of topic folders declared in the root Index Note. Triage files notes only into Taxonomy folders and may extend the Taxonomy when nothing fits; folders not listed there are invisible to Triage.
+_Avoid_: folder structure, directory tree
+
 ## Flagged ambiguities
 
 - "Processing Queue" previously named a markdown page *inside* the Vault. That page is deprecated; **Queue** now always means the server-side queue.

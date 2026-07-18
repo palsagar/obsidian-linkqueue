@@ -125,7 +125,7 @@ class TestDashboard:
         )
         assert resp.status_code == 303
         links = client.get("/links").json()
-        assert [l["url"] for l in links] == ["https://example.com/from-form"]
+        assert [link["url"] for link in links] == ["https://example.com/from-form"]
         assert links[0]["source"] == "dashboard"
 
 

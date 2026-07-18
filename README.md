@@ -39,8 +39,8 @@ flowchart LR
 
 ## Status
 
-- ✅ **Queue API** — capture, dedup, atomic claim-with-lease, outcomes, dashboard. 15 tests.
-- 🔜 **Triage Agent** — Python worker, Pydantic AI over OpenRouter, launchd schedule.
+- ✅ **Queue API** — capture, dedup, atomic claim-with-lease, outcomes, dashboard.
+- ✅ **Triage Agent** — `agent/` package, Pydantic AI over OpenRouter, guarded index rewrites (ADR 0004), launchd schedule.
 - 🔜 **Vault backup job** — nightly one-way git push.
 
 ## Quickstart
@@ -88,3 +88,35 @@ Share sheet → receives URLs → *Get Contents of URL*:
 - Method `POST`, URL `https://<your-domain>/links`
 - Headers: `CF-Access-Client-Id`, `CF-Access-Client-Secret`, `Content-Type: application/json`
 - Body: `{"url": <Shortcut input>, "source": "iphone"}`
+
+## Triage Agent
+
+Runs on the laptop where the Vault lives (`triage run`, plus a nightly
+launchd job at 22:00). Claims pending Links, pre-fetches each URL, makes two
+structured LLM calls per Link (classify + index rewrite) over OpenRouter,
+writes one note per Link into the Vault, and reports `done`/`failed` back to
+the Queue. Index rewrites are guarded — see `docs/adr/0004`.
+
+Config lives in `~/.config/linkqueue/agent.env` (chmod 600):
+
+```bash
+OPENROUTER_API_KEY=sk-or-...
+QUEUE_URL=https://queue.<your-domain>
+CF_ACCESS_CLIENT_ID=<service-token-id>.access
+CF_ACCESS_CLIENT_SECRET=<service-token-secret>
+VAULT_PATH=~/Obsidian/vault
+# optional overrides
+#TRIAGE_MODEL=x-ai/grok-4.5
+#TRIAGE_FALLBACK_MODEL=deepseek/deepseek-v4-pro
+#TRIAGE_LIMIT=20
+```
+
+Install the nightly job:
+
+```bash
+cp deploy/com.linkqueue.triage.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.linkqueue.triage.plist
+```
+
+Manual run anytime: `triage run` (add `--limit N` to cap a run). Offline or
+empty queue → the run skips silently.
