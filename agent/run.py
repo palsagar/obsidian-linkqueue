@@ -4,6 +4,7 @@ Each Link completes (or fails) fully before the next starts, so a crash
 loses at most one; the lease reclaims anything stranded mid-run.
 """
 
+import logging
 from datetime import date
 from pathlib import Path
 
@@ -12,6 +13,8 @@ import httpx
 from agent import judgment, vault
 from agent.fetch import fetch
 from agent.queue_client import QueueClient
+
+log = logging.getLogger("obs_triage")
 
 
 def run_triage(
@@ -22,19 +25,26 @@ def run_triage(
     limit: int = 20,
 ) -> dict:
     stats = {"done": 0, "failed": 0}
-    for link in queue.claim(limit=limit):
+    links = queue.claim(limit=limit)
+    log.info("claimed %d links", len(links))
+    for i, link in enumerate(links, 1):
+        log.info("[%d/%d] %s", i, len(links), link["url"])
         try:
             page = fetch(link["url"], web)
             if page.error:
                 queue.failed(link["id"], error=page.error)
                 stats["failed"] += 1
+                log.info("  failed: %s", page.error)
                 continue
+            log.info("  fetched: %s", page.title or "(no title)")
             note_path = _triage_one(link, page, vault_path, model)
             queue.done(link["id"], note_path=note_path)
             stats["done"] += 1
+            log.info("  done: %s", note_path)
         except Exception as e:  # hard error (model/API): report and keep going
             queue.failed(link["id"], error=str(e))
             stats["failed"] += 1
+            log.info("  failed: %s", e)
     return stats
 
 

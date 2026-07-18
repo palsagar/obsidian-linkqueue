@@ -6,6 +6,7 @@ folder/title/tags/section; Python moves the file (frontmatter merged, body
 untouched) and updates the Index Note like any other triaged note.
 """
 
+import logging
 from datetime import date
 from pathlib import Path
 
@@ -14,6 +15,8 @@ import yaml
 from agent import judgment, vault
 from agent.fetch import TEXT_LIMIT, Page
 from agent.run import update_indexes
+
+log = logging.getLogger("obs_triage")
 
 
 def split_note(text: str) -> tuple[dict, str]:
@@ -51,17 +54,21 @@ def list_clippings(vault_path: Path) -> list[Path]:
 
 def triage_clippings(vault_path: Path, model) -> dict:
     stats = {"done": 0, "failed": 0}
-    for path in list_clippings(vault_path):
+    clippings = list_clippings(vault_path)
+    log.info("clippings: %d to triage", len(clippings))
+    for i, path in enumerate(clippings, 1):
+        log.info("[%d/%d] %s", i, len(clippings), path.name)
         try:
-            _triage_clipping(path, vault_path, model)
+            target = _triage_clipping(path, vault_path, model)
             stats["done"] += 1
+            log.info("  filed: %s", target)
         except Exception as e:  # leave the file in place for the next run
-            print(f"clipping '{path.name}' failed: {e}")
+            log.info("  failed (left in place): %s", e)
             stats["failed"] += 1
     return stats
 
 
-def _triage_clipping(path: Path, vault_path: Path, model) -> None:
+def _triage_clipping(path: Path, vault_path: Path, model) -> str:
     fm, body = split_note(path.read_text())
     root_index = (vault_path / "_Index.md").read_text()
 
@@ -85,3 +92,4 @@ def _triage_clipping(path: Path, vault_path: Path, model) -> None:
     merged = merge_frontmatter(fm, triaged=date.today().isoformat(), tags=result.tags)
     target.write_text(render_note(merged, body))
     path.unlink()
+    return str(target.relative_to(vault_path.resolve()))

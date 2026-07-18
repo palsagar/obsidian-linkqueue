@@ -39,11 +39,28 @@ class TestClassify:
         )
         assert isinstance(result, Classification)
         assert result.folder == "ML & Deep Learning"
+        assert result.note_title == "Attention Is Overrated"
         prompt = seen[0]
         assert "https://example.com/attn" in prompt
         assert "Attention Is Overrated" in prompt
         assert "from that thread" in prompt
         assert "Investing" in prompt
+
+    def test_note_title_is_sanitized_to_match_the_filename_it_becomes(self):
+        dirty = dict(CANNED, note_title='Goodhart: "Overfitting" [2026] #1')
+
+        def respond(messages, info):
+            return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, dirty)])
+
+        result = classify(
+            FunctionModel(respond),
+            url="https://example.com/x",
+            note=None,
+            page=Page(title="t", description=None, text=""),
+            taxonomy=["ML & Deep Learning"],
+            root_index="# Vault Index",
+        )
+        assert result.note_title == "Goodhart Overfitting 2026 1"
 
 
 class TestRewriteIndex:

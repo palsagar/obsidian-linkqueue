@@ -163,6 +163,34 @@ class TestRunTriage:
         link = queue_http.get("/links").json()[0]
         assert link["status"] == "failed"
 
+    def test_progress_is_logged(self, vault, queue_http, web, caplog):
+        import logging
+
+        queue_http.post("/links", json={"url": "https://example.com/good"})
+        queue_http.post("/links", json={"url": "https://example.com/dead"})
+        model = make_model(
+            {
+                "note_title": "Attention Is Overrated",
+                "note_body": "Summary.",
+                "tags": [],
+                "folder": "AI Engineering",
+                "is_new_folder": False,
+                "folder_description": "",
+                "section": "Agents",
+                "root_section": "",
+            },
+            "# AI Engineering\n\n## Agents\n- [[Old Note]]\n- [[Attention Is Overrated]]\n",
+        )
+        with caplog.at_level(logging.INFO):
+            run_triage(QueueClient(queue_http), web, vault, model, limit=10)
+
+        messages = [r.message for r in caplog.records]
+        assert any("claimed 2 links" in m for m in messages)
+        assert any("[1/2] https://example.com/good" in m for m in messages)
+        assert any("done: AI Engineering/Attention Is Overrated.md" in m for m in messages)
+        assert any("[2/2] https://example.com/dead" in m for m in messages)
+        assert any("failed: HTTP 404" in m for m in messages)
+
     def test_model_failure_marks_link_failed(self, vault, queue_http, web):
         queue_http.post("/links", json={"url": "https://example.com/good"})
 

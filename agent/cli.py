@@ -2,6 +2,7 @@
 (interactive and launchd)."""
 
 import argparse
+import logging
 import subprocess
 import sys
 from pathlib import Path
@@ -25,6 +26,14 @@ def main(argv: list[str] | None = None) -> int:
     backup_p = sub.add_parser("backup", help="one-way git backup of the Vault")
     backup_p.add_argument("--config", default=str(DEFAULT_PATH))
     args = parser.parse_args(argv)
+
+    # per-link progress on stdout — visible interactively and in launchd logs
+    # (scoped to our logger so httpx/httpcore chatter stays out)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    progress_log = logging.getLogger("obs_triage")
+    progress_log.addHandler(handler)
+    progress_log.setLevel(logging.INFO)
 
     try:
         cfg = load_config(Path(args.config))

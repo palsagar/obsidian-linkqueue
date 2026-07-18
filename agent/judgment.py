@@ -6,16 +6,26 @@ folder's Index Note (guarded by the caller, ADR 0004). New folders skip the
 rewrite. The model only ever returns data — no tools, no file access.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from pydantic_ai import Agent
 from pydantic_ai.models import Model
 from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 
+from agent.vault import safe_filename
+
 
 class Classification(BaseModel):
     note_title: str
+    # the title becomes both the filename and the wikilink target — sanitize
+    # once here so they can never diverge (Obsidian forbids \ / : etc.)
+
+    @field_validator("note_title")
+    @classmethod
+    def _filename_safe(cls, v: str) -> str:
+        return safe_filename(v)
+
     note_body: str
     tags: list[str]
     folder: str
