@@ -56,5 +56,9 @@
     <tr><td colspan="4">Queue is empty.</td></tr>
     {% endfor %}
   </table>
+  <script>
+    // live updates: any queue mutation pings this stream; reload to re-render
+    new EventSource("/dashboard/events").onmessage = () => location.reload();
+  </script>
 </body>
 </html>
