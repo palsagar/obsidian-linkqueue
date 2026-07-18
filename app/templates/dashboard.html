@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Link Queue</title>
+  <style>
+    :root { color-scheme: light dark; font-family: -apple-system, system-ui, sans-serif; }
+    body { max-width: 60rem; margin: 2rem auto; padding: 0 1rem; }
+    form.capture { display: flex; gap: .5rem; margin-bottom: 1.5rem; }
+    form.capture input[type=url] { flex: 1; padding: .5rem; }
+    table { width: 100%; border-collapse: collapse; }
+    td, th { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid #8884; vertical-align: top; }
+    td.url { max-width: 24rem; overflow-wrap: anywhere; }
+    .status { padding: .1rem .5rem; border-radius: .6rem; font-size: .8rem; white-space: nowrap; }
+    .status.pending    { background: #e6a70033; }
+    .status.processing { background: #0070f333; }
+    .status.done       { background: #17a34a33; }
+    .status.failed     { background: #dc262633; }
+    .error { color: #dc2626; font-size: .85rem; }
+    .note-path { font-size: .85rem; opacity: .8; }
+    button { cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Link Queue</h1>
+  <form class="capture" method="post" action="/dashboard/capture">
+    <input type="url" name="url" placeholder="https://…" required>
+    <button type="submit">Queue it</button>
+  </form>
+  <table>
+    <tr><th>Link</th><th>Status</th><th>Outcome</th><th></th></tr>
+    {% for link in links %}
+    <tr>
+      <td class="url">
+        <a href="{{ link.url }}">{{ link.url }}</a>
+        {% if link.note %}<div class="note-path">{{ link.note }}</div>{% endif %}
+      </td>
+      <td><span class="status {{ link.status }}">{{ link.status }}</span></td>
+      <td>
+        {% if link.note_path %}<span class="note-path">{{ link.note_path }}</span>{% endif %}
+        {% if link.error %}<span class="error">{{ link.error }}</span>{% endif %}
+      </td>
+      <td>
+        {% if link.status == 'failed' %}
+        <form method="post" action="/dashboard/links/{{ link.id }}/retry" style="display:inline">
+          <button>retry</button>
+        </form>
+        {% endif %}
+        <form method="post" action="/dashboard/links/{{ link.id }}/delete" style="display:inline">
+          <button>delete</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">Queue is empty.</td></tr>
+    {% endfor %}
+  </table>
+</body>
+</html>
