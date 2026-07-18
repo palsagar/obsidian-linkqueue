@@ -6,8 +6,8 @@
     <string>com.linkqueue.triage</string>
     <key>ProgramArguments</key>
     <array>
-        <!-- adjust if the repo lives elsewhere -->
-        <string>/Users/sagarpal/projects/obsidian_sync/.venv/bin/triage</string>
+        <!-- uv tool install puts the binary here; adjust for your username -->
+        <string>/Users/sagarpal/.local/bin/obs_triage</string>
         <string>run</string>
     </array>
     <key>StartCalendarInterval</key>

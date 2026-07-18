@@ -1,4 +1,4 @@
-"""`triage run` — the Agent's entry point (interactive and launchd)."""
+"""`obs_triage run` — the Agent's entry point (interactive and launchd)."""
 
 import argparse
 import sys
@@ -13,7 +13,7 @@ from agent.run import run_triage
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="triage")
+    parser = argparse.ArgumentParser(prog="obs_triage")
     sub = parser.add_subparsers(dest="command", required=True)
     run_p = sub.add_parser("run", help="claim pending Links and triage them")
     run_p.add_argument("--config", default=str(DEFAULT_PATH))

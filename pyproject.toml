@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-triage = "agent.cli:main"
+obs_triage = "agent.cli:main"
 
 [dependency-groups]
 dev = [

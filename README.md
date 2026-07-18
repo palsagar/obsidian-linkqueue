@@ -91,11 +91,29 @@ Share sheet → receives URLs → *Get Contents of URL*:
 
 ## Triage Agent
 
-Runs on the laptop where the Vault lives (`triage run`, plus a nightly
+Runs on the laptop where the Vault lives (`obs_triage run`, plus a nightly
 launchd job at 22:00). Claims pending Links, pre-fetches each URL, makes two
 structured LLM calls per Link (classify + index rewrite) over OpenRouter,
 writes one note per Link into the Vault, and reports `done`/`failed` back to
 the Queue. Index rewrites are guarded — see `docs/adr/0004`.
+
+### Install globally
+
+`uv tool install` puts `obs_triage` on your PATH (`~/.local/bin`), isolated
+from any project venv:
+
+```bash
+# from a local checkout (use -e to pick up edits without reinstalling)
+uv tool install --editable /path/to/obsidian-linkqueue
+
+# or straight from GitHub, no checkout needed
+uv tool install git+https://github.com/palsagar/obsidian-linkqueue
+```
+
+Upgrade later with `uv tool upgrade linkqueue`; remove with
+`uv tool uninstall linkqueue`.
+
+### Configure
 
 Config lives in `~/.config/linkqueue/agent.env` (chmod 600):
 
@@ -111,12 +129,15 @@ VAULT_PATH=~/Obsidian/vault
 #TRIAGE_LIMIT=20
 ```
 
-Install the nightly job:
+### Schedule
+
+Install the nightly job (the plist points at `~/.local/bin/obs_triage`;
+adjust the username inside if needed):
 
 ```bash
 cp deploy/com.linkqueue.triage.plist ~/Library/LaunchAgents/
 launchctl load ~/Library/LaunchAgents/com.linkqueue.triage.plist
 ```
 
-Manual run anytime: `triage run` (add `--limit N` to cap a run). Offline or
-empty queue → the run skips silently.
+Manual run anytime: `obs_triage run` (add `--limit N` to cap a run).
+Offline or empty queue → the run skips silently.
