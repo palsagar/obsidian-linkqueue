@@ -34,3 +34,24 @@ class QueueClient:
         self.http.patch(
             f"/links/{link_id}", json={"status": "failed", "error": error}
         ).raise_for_status()
+
+    def report_run(
+        self,
+        started_at: float,
+        finished_at: float,
+        outcome: str,
+        done: int = 0,
+        failed: int = 0,
+        error: str | None = None,
+    ) -> None:
+        self.http.post(
+            "/runs",
+            json={
+                "started_at": started_at,
+                "finished_at": finished_at,
+                "outcome": outcome,
+                "done": done,
+                "failed": failed,
+                "error": error,
+            },
+        ).raise_for_status()

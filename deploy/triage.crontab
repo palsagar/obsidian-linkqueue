@@ -1,0 +1,11 @@
+# Triage schedule (TZ=Europe/Paris, set in Dockerfile.triage).
+# --sync brackets each run with one-shot `ob sync` pull/push (ADR 0005).
+
+# hourly during waking hours on weekdays
+0 9-19 * * 1-5 cd /srv && uv run --no-dev obs_triage run --sync
+
+# midnight run every day
+0 0 * * * cd /srv && uv run --no-dev obs_triage run --sync
+
+# nightly one-way git backup of the Vault, after the midnight run
+30 0 * * * cd /srv && uv run --no-dev obs_triage backup

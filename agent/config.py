@@ -1,5 +1,7 @@
 """Agent config: one env-format file, loaded explicitly so interactive and
-launchd runs share it. Default location: ~/.config/linkqueue/agent.env."""
+scheduled runs share it. Default location: ~/.config/linkqueue/agent.env.
+When the file is absent (the VPS container), values come from the process
+environment instead (Coolify env vars; ADR 0005)."""
 
 import os
 from dataclasses import dataclass
@@ -13,6 +15,7 @@ REQUIRED = [
     "CF_ACCESS_CLIENT_SECRET",
     "VAULT_PATH",
 ]
+OPTIONAL = ["TRIAGE_MODEL", "TRIAGE_FALLBACK_MODEL", "TRIAGE_LIMIT"]
 
 
 @dataclass
@@ -28,17 +31,22 @@ class Config:
 
 
 def load_config(path: Path = DEFAULT_PATH) -> Config:
-    values = {}
-    for line in path.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        values[key.strip()] = value.strip().strip('"').strip("'")
+    if path.exists():
+        values = {}
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            values[key.strip()] = value.strip().strip('"').strip("'")
+        source = str(path)
+    else:
+        values = {k: v for k in REQUIRED + OPTIONAL if (v := os.environ.get(k))}
+        source = f"{path} not found and environment"
 
     missing = [k for k in REQUIRED if not values.get(k)]
     if missing:
-        raise ValueError(f"{path}: missing required keys: {', '.join(missing)}")
+        raise ValueError(f"{source}: missing required keys: {', '.join(missing)}")
 
     return Config(
         openrouter_api_key=values["OPENROUTER_API_KEY"],

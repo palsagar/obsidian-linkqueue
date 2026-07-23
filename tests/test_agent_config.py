@@ -1,6 +1,6 @@
 import pytest
 
-from agent.config import Config, load_config
+from agent.config import REQUIRED, Config, load_config
 
 VALID = """\
 # linkqueue agent config
@@ -47,6 +47,20 @@ class TestLoadConfig:
         with pytest.raises(ValueError, match="OPENROUTER_API_KEY"):
             load_config(f)
 
-    def test_missing_file_raises(self, tmp_path):
-        with pytest.raises(FileNotFoundError):
+    def test_missing_file_falls_back_to_environment(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-env")
+        monkeypatch.setenv("QUEUE_URL", "https://queue.example.dev")
+        monkeypatch.setenv("CF_ACCESS_CLIENT_ID", "id.access")
+        monkeypatch.setenv("CF_ACCESS_CLIENT_SECRET", "secret")
+        monkeypatch.setenv("VAULT_PATH", str(tmp_path / "vault"))
+        monkeypatch.setenv("TRIAGE_LIMIT", "7")
+        cfg = load_config(tmp_path / "nope.env")
+        assert cfg.openrouter_api_key == "sk-or-env"
+        assert cfg.vault_path == tmp_path / "vault"
+        assert cfg.limit == 7
+
+    def test_missing_file_and_empty_environment_raises(self, tmp_path, monkeypatch):
+        for key in REQUIRED:
+            monkeypatch.delenv(key, raising=False)
+        with pytest.raises(ValueError, match="nope.env"):
             load_config(tmp_path / "nope.env")

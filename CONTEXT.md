@@ -54,4 +54,4 @@ _Avoid_: folder structure, directory tree
 > **Dev:** When I share an article from my iPhone, does that write to the Vault?
 > **Expert:** No — Capture only ever appends a Link to the Queue. Nothing touches the Vault until Triage runs.
 > **Dev:** And Triage runs on the server?
-> **Expert:** No, the Agent runs where the Vault physically exists. It pulls pending Links from the Queue, writes notes into the Knowledge Base, and Obsidian Sync propagates them to every device.
+> **Expert:** Yes — the Agent runs where the Vault's automated-write copy physically exists, which is the server, alongside the Queue. It pulls pending Links from the Queue, writes notes into the Knowledge Base, and headless Obsidian Sync propagates them to every device.

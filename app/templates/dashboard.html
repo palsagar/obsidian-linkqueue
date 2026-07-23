@@ -18,12 +18,21 @@
     .status.done       { background: #17a34a33; }
     .status.failed     { background: #dc262633; }
     .error { color: #dc2626; font-size: .85rem; }
+    .last-run { font-size: .85rem; opacity: .85; margin: -.5rem 0 1rem; }
     .note-path { font-size: .85rem; opacity: .8; }
     button { cursor: pointer; }
   </style>
 </head>
 <body>
   <h1>Link Queue</h1>
+  {% if last_run %}
+  <p class="last-run">
+    Agent last ran <time data-epoch="{{ last_run.finished_at }}"></time> —
+    <span class="status {{ 'done' if last_run.outcome == 'ok' else 'failed' }}">{{ last_run.outcome }}</span>
+    {{ last_run.done }} done, {{ last_run.failed }} failed
+    {% if last_run.error %}<span class="error">{{ last_run.error }}</span>{% endif %}
+  </p>
+  {% endif %}
   <form class="capture" method="post" action="/dashboard/capture">
     <input type="url" name="url" placeholder="https://…" required>
     <button type="submit">Queue it</button>
@@ -59,6 +68,9 @@
   <script>
     // live updates: any queue mutation pings this stream; reload to re-render
     new EventSource("/dashboard/events").onmessage = () => location.reload();
+    // heartbeat timestamp arrives as epoch seconds; render in the viewer's locale
+    const t = document.querySelector("time[data-epoch]");
+    if (t) t.textContent = new Date(t.dataset.epoch * 1000).toLocaleString();
   </script>
 </body>
 </html>

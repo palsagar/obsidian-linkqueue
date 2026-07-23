@@ -16,6 +16,15 @@ CREATE TABLE IF NOT EXISTS links (
     created_at REAL NOT NULL,
     updated_at REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at REAL NOT NULL,
+    finished_at REAL NOT NULL,
+    outcome TEXT NOT NULL,
+    done INTEGER NOT NULL DEFAULT 0,
+    failed INTEGER NOT NULL DEFAULT 0,
+    error TEXT
+);
 """
 
 
@@ -111,6 +120,28 @@ def set_outcome(
     ).fetchone()
     conn.commit()
     return row
+
+
+def record_run(
+    conn: sqlite3.Connection,
+    started_at: float,
+    finished_at: float,
+    outcome: str,
+    done: int,
+    failed: int,
+    error: str | None,
+):
+    row = conn.execute(
+        "INSERT INTO runs (started_at, finished_at, outcome, done, failed, error)"
+        " VALUES (?, ?, ?, ?, ?, ?) RETURNING *",
+        (started_at, finished_at, outcome, done, failed, error),
+    ).fetchone()
+    conn.commit()
+    return row
+
+
+def last_run(conn: sqlite3.Connection):
+    return conn.execute("SELECT * FROM runs ORDER BY id DESC LIMIT 1").fetchone()
 
 
 def delete_link(conn: sqlite3.Connection, link_id: int) -> bool:
