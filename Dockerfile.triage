@@ -31,4 +31,6 @@ ENV HOME=/data VAULT_PATH=/data/vault TZ=Europe/Paris
 VOLUME /data
 
 COPY deploy/triage.crontab ./triage.crontab
-CMD ["supercronic", "-passthrough-logs", "/srv/triage.crontab"]
+# Absolute path: as PID 1 supercronic's reaper re-execs argv[0] via execve
+# (no PATH search), so a bare "supercronic" would fail with ENOENT.
+CMD ["/usr/local/bin/supercronic", "-passthrough-logs", "/srv/triage.crontab"]
