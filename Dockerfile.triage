@@ -1,0 +1,34 @@
+# Triage Agent container (ADR 0005): Python agent + headless Obsidian Sync
+# (`ob`) + supercronic schedule. The vault copy, `ob` auth state, ssh key and
+# git identity all live under /data (HOME) on a persistent volume.
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git openssh-client curl ca-certificates gnupg \
+ && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+ && apt-get install -y --no-install-recommends nodejs \
+ && rm -rf /var/lib/apt/lists/* \
+ && npm install -g obsidian-headless
+
+ARG TARGETARCH
+ARG SUPERCRONIC_VERSION=v0.2.34
+RUN curl -fsSLo /usr/local/bin/supercronic \
+      "https://github.com/aptible/supercronic/releases/download/${SUPERCRONIC_VERSION}/supercronic-linux-${TARGETARCH}" \
+ && chmod +x /usr/local/bin/supercronic
+
+WORKDIR /srv
+ENV UV_COMPILE_BYTECODE=1
+
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
+
+COPY app ./app
+COPY agent ./agent
+RUN uv sync --frozen --no-dev
+
+# HOME=/data puts ~/.config (ob auth), ~/.ssh and ~/.gitconfig on the volume
+ENV HOME=/data VAULT_PATH=/data/vault TZ=Europe/Paris
+VOLUME /data
+
+COPY deploy/triage.crontab ./triage.crontab
+CMD ["supercronic", "-passthrough-logs", "/srv/triage.crontab"]

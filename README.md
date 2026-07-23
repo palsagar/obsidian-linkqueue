@@ -12,18 +12,16 @@ flowchart LR
     end
     subgraph vps["VPS — Docker, Cloudflare Access"]
         Q["Queue API<br/>FastAPI + SQLite + dashboard"]
-    end
-    subgraph laptop["Agent laptop"]
         A["Triage Agent<br/>LLM via OpenRouter"]
-        V[("Obsidian vault")]
+        V[("Obsidian vault<br/>server copy")]
     end
     D["all devices (reading)"]
 
     S -- "POST /links" --> Q
     H -- "paste / retry" --> Q
     A -- "claim + report" --> Q
-    A -- "writes notes" --> V
-    V -- "Obsidian Sync" --> D
+    A -- "writes notes<br/>(ob sync bracket)" --> V
+    V -- "headless Obsidian Sync" --> D
 ```
 
 ## Documentation
@@ -32,16 +30,18 @@ flowchart LR
 |---|---|
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Full design: components, API surface, data model, triage flow, deployment, vault migration plan |
 | [CONTEXT.md](CONTEXT.md) | Domain glossary — what Link, Capture, Queue, Triage, Agent, Vault mean here |
-| [docs/adr/0001](docs/adr/0001-obsidian-sync-sole-vault-sync.md) | Why Obsidian Sync is the only vault sync, and why the Agent runs on a laptop, not the VPS |
+| [docs/adr/0001](docs/adr/0001-obsidian-sync-sole-vault-sync.md) | Why Obsidian Sync is the only vault sync (superseded by 0005 on where the Agent runs) |
 | [docs/adr/0002](docs/adr/0002-queue-lives-outside-the-vault.md) | Why the queue lives outside the vault (the core move that kills sync conflicts) |
 | [docs/adr/0003](docs/adr/0003-vault-must-not-live-in-icloud-synced-folders.md) | Why the vault can't live under an iCloud-synced folder |
-| [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md) | Manual setup checklist: Obsidian Sync pairing, Cloudflare Zero Trust, Coolify deploy, iOS Shortcut |
+| [docs/adr/0004](docs/adr/0004-guarded-full-index-rewrite.md) | Why index rewrites are guarded by wikilink preservation |
+| [docs/adr/0005](docs/adr/0005-agent-moves-to-vps-with-headless-sync.md) | Why the Agent runs on the VPS with a one-shot headless-sync bracket per run |
+| [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md) | Manual cutover checklist: retire laptop jobs, deploy + bootstrap the triage container |
 
 ## Status
 
-- ✅ **Queue API** — capture, dedup, atomic claim-with-lease, outcomes, dashboard.
-- ✅ **Triage Agent** — `agent/` package, Pydantic AI over OpenRouter, guarded index rewrites (ADR 0004), launchd schedule.
-- 🔜 **Vault backup job** — nightly one-way git push.
+- ✅ **Queue API** — capture, dedup, atomic claim-with-lease, outcomes, run heartbeat, dashboard.
+- ✅ **Triage Agent** — `agent/` package, Pydantic AI over OpenRouter, guarded index rewrites (ADR 0004), server-side via `Dockerfile.triage` + headless Obsidian Sync (ADR 0005).
+- ✅ **Vault backup job** — nightly one-way git push from the triage container.
 
 ## Quickstart
 
@@ -67,10 +67,13 @@ Dashboard at `http://localhost:8000/`.
 | `POST /links/claim` | `{limit?, lease_seconds?}` — atomically claim pending (or lease-expired) links as `processing`. |
 | `PATCH /links/{id}` | Report outcome: `{status: done\|failed\|pending, note_path?, error?}`. `pending` = retry, clears error. |
 | `DELETE /links/{id}` | Remove a link. |
+| `POST /runs` | Agent heartbeat: `{started_at, finished_at, outcome, done?, failed?, error?}` — one row per triage run, latest shown on the dashboard. |
 
 ## Deploy
 
-Build from the `Dockerfile` (e.g. via Coolify). Attach a persistent volume at `/data` — SQLite lives at `/data/queue.db`.
+Two containers (e.g. via Coolify), each with its own persistent volume at `/data`.
+
+**Queue** — build from `Dockerfile`; SQLite lives at `/data/queue.db`.
 
 | Env var | Value |
 |---|---|
@@ -78,6 +81,16 @@ Build from the `Dockerfile` (e.g. via Coolify). Attach a persistent volume at `/
 | `QUEUE_AUTH_MODE` | `cloudflare` (default) or `disabled` (local dev only) |
 | `CF_TEAM_DOMAIN` | e.g. `yourteam.cloudflareaccess.com` |
 | `CF_POLICY_AUD` | the Cloudflare Access application's Audience (AUD) tag |
+
+**Triage** — build from `Dockerfile.triage`; the vault, `ob` auth state, ssh key and git identity live under `/data` (the container's `HOME`). Scheduled by supercronic (`deploy/triage.crontab`): triage hourly 9:00–19:00 weekdays + midnight daily, backup at 00:30 (`TZ=Europe/Paris`). One-time bootstrap via `docker exec`: see [docs/NEXT-STEPS.md](docs/NEXT-STEPS.md).
+
+| Env var | Value |
+|---|---|
+| `OPENROUTER_API_KEY` | OpenRouter key for the triage LLM |
+| `QUEUE_URL` | `https://queue.<your-domain>` |
+| `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` | Cloudflare Access service token |
+| `VAULT_PATH` | `/data/vault` (image default) |
+| `TRIAGE_MODEL` / `TRIAGE_FALLBACK_MODEL` / `TRIAGE_LIMIT` | optional overrides |
 
 Put the domain behind a Cloudflare Access application: humans log in via SSO; the iOS Shortcut and the Agent authenticate with an Access **service token** (`CF-Access-Client-Id` / `CF-Access-Client-Secret` headers). The app additionally verifies the `Cf-Access-Jwt-Assertion` JWT at the origin.
 
@@ -91,11 +104,13 @@ Share sheet → receives URLs → *Get Contents of URL*:
 
 ## Triage Agent
 
-Runs on the laptop where the Vault lives (`obs_triage run`, plus a nightly
-launchd job at 22:00). Claims pending Links, pre-fetches each URL, makes two
-structured LLM calls per Link (classify + index rewrite) over OpenRouter,
-writes one note per Link into the Vault, and reports `done`/`failed` back to
-the Queue. Index rewrites are guarded — see `docs/adr/0004`.
+Runs on the VPS in the triage container (`obs_triage run --sync`, scheduled
+by supercronic; ADR 0005). Each run pulls the latest vault state via one-shot
+`ob sync` (a failed pull aborts the run — Links just wait), claims pending
+Links, pre-fetches each URL, makes two structured LLM calls per Link
+(classify + index rewrite) over OpenRouter, writes one note per Link into
+the Vault, reports `done`/`failed` back to the Queue, pushes via `ob sync`,
+and POSTs a run heartbeat. Index rewrites are guarded — see `docs/adr/0004`.
 
 The same run also triages **Clippings**: full pages staged in the Vault's
 `Clippings/` folder (e.g. Obsidian Web Clipper output) are classified, moved
@@ -121,7 +136,9 @@ Upgrade later with `uv tool upgrade linkqueue`; remove with
 
 ### Configure
 
-Config lives in `~/.config/linkqueue/agent.env` (chmod 600):
+In the container, config comes from env vars (see Deploy above). For a local
+run, an env-format file at `~/.config/linkqueue/agent.env` (chmod 600) takes
+precedence when it exists:
 
 ```bash
 OPENROUTER_API_KEY=sk-or-...
@@ -135,29 +152,13 @@ VAULT_PATH=~/Obsidian/vault
 #TRIAGE_LIMIT=20
 ```
 
-### Schedule
-
-Install the nightly job (the plist points at `~/.local/bin/obs_triage`;
-adjust the username inside if needed):
-
-```bash
-cp deploy/com.linkqueue.triage.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.linkqueue.triage.plist
-```
-
-Manual run anytime: `obs_triage run` (add `--limit N` to cap a run).
-Offline or empty queue → the run skips silently.
+Manual run anytime: `obs_triage run` (add `--limit N` to cap a run, `--sync`
+to bracket with `ob sync`). Offline or empty queue → the run skips silently.
 
 ## Vault backup
 
 `obs_triage backup` does a one-way `git add / commit / push` of the Vault to
 its `origin` remote — it never fetches or pulls (git is a backup target, not
-a sync mechanism; ADR 0001). No changes → no commit. A diverged remote makes
-the push fail loudly rather than merge.
-
-Nightly at 23:00 (an hour after triage):
-
-```bash
-cp deploy/com.linkqueue.backup.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.linkqueue.backup.plist
-```
+a sync mechanism). No changes → no commit. A diverged remote makes the push
+fail loudly rather than merge. Runs nightly at 00:30 in the triage container,
+pushed from the vault copy the Agent writes to (ADR 0005).

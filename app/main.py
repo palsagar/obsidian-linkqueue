@@ -41,6 +41,15 @@ class OutcomeIn(BaseModel):
     error: str | None = None
 
 
+class RunIn(BaseModel):
+    started_at: float
+    finished_at: float
+    outcome: Literal["ok", "sync_failed", "push_failed"]
+    done: int = 0
+    failed: int = 0
+    error: str | None = None
+
+
 class Bus:
     """In-process pub/sub for dashboard live updates. Mutating endpoints run
     in threadpool threads, so publish hops onto the event loop."""
@@ -124,6 +133,15 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=404)
         bus.publish()
 
+    @app.post("/runs", status_code=201)
+    def report_run(body: RunIn, conn=Depends(get_db)):
+        row = db.record_run(
+            conn, body.started_at, body.finished_at, body.outcome,
+            body.done, body.failed, body.error,
+        )
+        bus.publish()
+        return dict(row)
+
     @app.get("/dashboard/events")
     async def dashboard_events():
         return StreamingResponse(
@@ -135,8 +153,11 @@ def create_app() -> FastAPI:
     @app.get("/", response_class=HTMLResponse)
     def dashboard(request: Request, conn=Depends(get_db)):
         links = [dict(r) for r in db.list_links(conn, None)]
+        run = db.last_run(conn)
         return templates.TemplateResponse(
-            request, "dashboard.html", {"links": links}
+            request,
+            "dashboard.html",
+            {"links": links, "last_run": dict(run) if run else None},
         )
 
     @app.post("/dashboard/capture")
