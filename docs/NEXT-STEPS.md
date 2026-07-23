@@ -35,13 +35,19 @@ ob sync-setup --vault "<name>" --path /data/vault   # prompts for the E2EE passp
 ob sync --path /data/vault                # first full pull — verify it completes
 
 # b) git backup: reuse the existing backup repo's history
-ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
-cat ~/.ssh/id_ed25519.pub                 # → add as a write-access deploy key on the backup repo
-ssh-keyscan github.com >> ~/.ssh/known_hosts   # verify the printed key against GitHub's published fingerprints (docs.github.com → "GitHub's SSH key fingerprints") before trusting it
+mkdir -p /data/.ssh && chmod 700 /data/.ssh   # ssh-keygen won't create the dir itself
+ssh-keygen -t ed25519 -f /data/.ssh/id_ed25519 -N ""
+cat /data/.ssh/id_ed25519.pub             # → add as a write-access deploy key on the backup repo
+ssh-keyscan github.com >> /data/.ssh/known_hosts   # verify the printed key against GitHub's published fingerprints (docs.github.com → "GitHub's SSH key fingerprints") before trusting it
 git config --global user.name "vault-backup"
 git config --global user.email "vault-backup@localhost"
-git clone --no-checkout git@github.com:<you>/<backup-repo>.git /tmp/bk
+# ssh resolves ~ from /etc/passwd (/root), not $HOME=/data — pin key + known_hosts by absolute path
+SSHCMD="ssh -i /data/.ssh/id_ed25519 -o IdentitiesOnly=yes -o UserKnownHostsFile=/data/.ssh/known_hosts"
+GIT_SSH_COMMAND="$SSHCMD" git clone --no-checkout git@github.com:<you>/<backup-repo>.git /tmp/bk
 mv /tmp/bk/.git /data/vault/.git          # existing vault files become the working tree
+git -C /data/vault config core.sshCommand "$SSHCMD"   # scheduled backups use the same pinned key
+git -C /data/vault reset -q               # --no-checkout leaves an empty index; rebuild it from HEAD
+git -C /data/vault checkout -- .gitignore # root dotfiles don't sync; restore the repo's ignore rules
 ```
 
 (Obsidian Sync ignores dot-directories, so `.git` inside the vault never syncs to devices.)
