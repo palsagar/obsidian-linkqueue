@@ -37,7 +37,7 @@ ob sync --path /data/vault                # first full pull — verify it comple
 # b) git backup: reuse the existing backup repo's history
 ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
 cat ~/.ssh/id_ed25519.pub                 # → add as a write-access deploy key on the backup repo
-ssh-keyscan github.com >> ~/.ssh/known_hosts
+ssh-keyscan github.com >> ~/.ssh/known_hosts   # verify the printed key against GitHub's published fingerprints (docs.github.com → "GitHub's SSH key fingerprints") before trusting it
 git config --global user.name "vault-backup"
 git config --global user.email "vault-backup@localhost"
 git clone --no-checkout git@github.com:<you>/<backup-repo>.git /tmp/bk

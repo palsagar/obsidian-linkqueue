@@ -65,7 +65,7 @@ def main(argv: list[str] | None = None) -> int:
 
     started = time.time()
 
-    def heartbeat(outcome: str, done: int = 0, failed: int = 0, error: str | None = None):
+    def heartbeat(outcome: str, done: int = 0, failed: int = 0, error: str | None = None) -> None:
         # best-effort: an unreachable queue must not mask the run's own outcome
         try:
             queue.report_run(started, time.time(), outcome, done=done, failed=failed, error=error)

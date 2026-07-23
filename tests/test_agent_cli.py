@@ -40,7 +40,21 @@ class TestSyncBracket:
         cfg.write_text(CONFIG.format(vault=tmp_path))
         return cfg
 
-    def test_pre_sync_failure_aborts_before_triage(self, config_file, monkeypatch, capsys):
+    @pytest.fixture()
+    def heartbeats(self, monkeypatch):
+        # capture the run heartbeat instead of POSTing to a real socket
+        beats = []
+        monkeypatch.setattr(
+            "agent.cli.QueueClient.report_run",
+            lambda self, started, finished, outcome, done=0, failed=0, error=None: beats.append(
+                (outcome, done, failed, error)
+            ),
+        )
+        return beats
+
+    def test_pre_sync_failure_aborts_before_triage(
+        self, config_file, heartbeats, monkeypatch, capsys
+    ):
         def boom(vault_path):
             raise SyncError("no session")
 
@@ -52,8 +66,11 @@ class TestSyncBracket:
         code = main(["run", "--sync", "--config", str(config_file)])
         assert code == 1
         assert "aborting" in capsys.readouterr().err
+        assert heartbeats == [("sync_failed", 0, 0, "no session")]
 
-    def test_syncs_before_and_after_triage(self, config_file, monkeypatch, capsys):
+    def test_syncs_before_and_after_triage(
+        self, config_file, heartbeats, monkeypatch, capsys
+    ):
         calls = []
         monkeypatch.setattr("agent.cli.ob_sync", lambda vault_path: calls.append("sync"))
         monkeypatch.setattr(
@@ -66,8 +83,11 @@ class TestSyncBracket:
         code = main(["run", "--sync", "--config", str(config_file)])
         assert code == 0
         assert calls == ["sync", "triage", "sync"]
+        assert heartbeats == [("ok", 1, 0, None)]
 
-    def test_post_sync_failure_exits_nonzero(self, config_file, monkeypatch, capsys):
+    def test_post_sync_failure_exits_nonzero(
+        self, config_file, heartbeats, monkeypatch, capsys
+    ):
         calls = []
 
         def sync(vault_path):
@@ -83,3 +103,4 @@ class TestSyncBracket:
         code = main(["run", "--sync", "--config", str(config_file)])
         assert code == 1
         assert "post-run sync failed" in capsys.readouterr().err
+        assert heartbeats == [("push_failed", 0, 0, "push refused")]

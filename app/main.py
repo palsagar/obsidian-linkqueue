@@ -44,7 +44,7 @@ class OutcomeIn(BaseModel):
 class RunIn(BaseModel):
     started_at: float
     finished_at: float
-    outcome: str
+    outcome: Literal["ok", "sync_failed", "push_failed"]
     done: int = 0
     failed: int = 0
     error: str | None = None
